@@ -1,5 +1,5 @@
 // roomController.js
-import { PrismaClient } from "../generated/prisma/client.ts";
+import { PrismaClient } from "@prisma/client";
 let prisma;
 
 const getPrisma = () => {
