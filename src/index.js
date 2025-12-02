@@ -8,12 +8,13 @@ app.use(express.json());
 
 app.use("/api/rooms", roomRoutes);
 
+const PORT = process.env.PORT || 3000;
 // Initialize DB and start server
 AppDataSource.initialize()
   .then(() => {
     console.log("Supabase Data Source has been initialized!");
-    app.listen(3000, () => {
-      console.log("Server is running on http://localhost:3000");
+    app.listen(PORT, () => {
+      console.log(`Server is running on http://localhost:${PORT}`);
     });
   })
   .catch((err) => {

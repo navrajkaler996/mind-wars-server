@@ -1,15 +1,15 @@
 require("reflect-metadata");
+require("dotenv").config();
 const { DataSource } = require("typeorm");
+
 const { Room } = require("./entities/Room");
 
 const AppDataSource = new DataSource({
   type: "postgres",
-  url: "postgresql://postgres:Bitchplease1996*@db.akdpajnwzfpmucbokpxa.supabase.co:5432/postgres",
-  synchronize: true, // set to false in production
+  url: process.env.DATABASE_URL,
+  synchronize: true, // dev only, use migrations in prod
   logging: false,
-  ssl: {
-    rejectUnauthorized: false,
-  },
+  ssl: { rejectUnauthorized: false },
   entities: [Room],
   migrations: [],
   subscribers: [],
