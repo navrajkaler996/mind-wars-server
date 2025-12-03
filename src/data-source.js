@@ -3,6 +3,7 @@ require("dotenv").config();
 const { DataSource } = require("typeorm");
 
 const { Room } = require("./entities/Room");
+const { Player } = require("./entities/Player");
 
 const AppDataSource = new DataSource({
   type: "postgres",
@@ -10,7 +11,7 @@ const AppDataSource = new DataSource({
   synchronize: true, // dev only, use migrations in prod
   logging: false,
   ssl: { rejectUnauthorized: false },
-  entities: [Room],
+  entities: [Room, Player],
   migrations: [],
   subscribers: [],
 });

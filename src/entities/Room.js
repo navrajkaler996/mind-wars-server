@@ -21,9 +21,13 @@ const Room = new EntitySchema({
     code: {
       type: "varchar",
     },
-    playerName: {
-      type: "varchar",
-      nullable: true,
+  },
+  relations: {
+    players: {
+      type: "one-to-many",
+      target: "Player",
+      inverseSide: "room",
+      cascade: true,
     },
   },
 });

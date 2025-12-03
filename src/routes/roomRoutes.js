@@ -1,7 +1,7 @@
 const express = require("express");
 const { AppDataSource } = require("../data-source");
 const { Room } = require("../entities/Room");
-const { createRoom } = require("../controllers/roomController");
+const { createRoom, joinRoom } = require("../controllers/roomController");
 
 const router = express.Router();
 const roomRepository = AppDataSource.getRepository(Room);
@@ -19,5 +19,8 @@ router.get("/", async (req, res) => {
 
 //Create rooms
 router.post("/create", createRoom);
+
+//Join a room
+router.post("/join", joinRoom);
 
 module.exports = router;
