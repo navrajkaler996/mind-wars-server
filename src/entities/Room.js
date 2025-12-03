@@ -1,8 +1,8 @@
 const { EntitySchema } = require("typeorm");
 
 const Room = new EntitySchema({
-  name: "Room", // Entity name
-  tableName: "rooms", // Table name in Supabase
+  name: "Room",
+  tableName: "rooms",
   columns: {
     id: {
       primary: true,
