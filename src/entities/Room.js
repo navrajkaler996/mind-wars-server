@@ -21,6 +21,10 @@ const Room = new EntitySchema({
     code: {
       type: "varchar",
     },
+    playerName: {
+      type: "varchar",
+      nullable: true,
+    },
   },
 });
 
