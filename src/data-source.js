@@ -13,10 +13,6 @@ const AppDataSource = new DataSource({
   entities: [Room],
   migrations: [],
   subscribers: [],
-  extra: {
-    // Force IPv4
-    family: 4,
-  },
 });
 
 module.exports = { AppDataSource };

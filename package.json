@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
  "start": "node src/index.js",
-  "dev": "nodemon src/index.js"
+  "dev": "nodemon src/index.js",
+    "typeorm:migrate": "typeorm migration:run -d dist/data-source.js"
 },
   "keywords": [],
   "author": "",
