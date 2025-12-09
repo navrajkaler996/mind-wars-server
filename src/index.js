@@ -8,6 +8,8 @@ const { AppDataSource } = require("./data-source");
 
 const roomRoutes = require("./routes/roomRoutes");
 const { Player } = require("./entities/Player");
+const { Room } = require("./entities/Room");
+const { quizData } = require("./data");
 
 const app = express();
 
@@ -15,7 +17,7 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: [process.env.CLIENT_URL_PROD],
+    origin: [process.env.CLIENT_URL_DEV],
     methods: ["GET", "POST"],
     credentials: true,
     allowedHeaders: ["Content-Type"],
@@ -24,7 +26,7 @@ const io = new Server(server, {
 
 app.use(
   cors({
-    origin: process.env.CLIENT_URL_PROD,
+    origin: process.env.CLIENT_URL_DEV,
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -37,16 +39,61 @@ app.use(express.json());
 
 app.use("/api/rooms", roomRoutes);
 
+const activeQuizzes = {};
+
 io.on("connection", (socket) => {
   console.log("New client connected:", socket.id);
+
+  function sendNextQuestion(roomId) {
+    const quiz = activeQuizzes[roomId];
+    //No quiz found
+    if (!quiz) {
+      return;
+    }
+
+    //Clearing any existing timer
+    if (quiz.timer) {
+      clearTimeout(quiz.timer);
+    }
+
+    quiz.currentQuestionIndex++;
+
+    if (quiz.currentQuestionIndex >= quiz.questions.length) {
+      //Quiz ended
+      io.to(roomId).emit("quizEnded");
+      delete activeQuizzes[roomId];
+      return;
+    }
+
+    sendQuestionToRoom(roomId);
+  }
+
+  //Function to send questions to the room
+  function sendQuestionToRoom(roomId) {
+    const quiz = activeQuizzes[roomId];
+    if (!quiz) {
+      return;
+    }
+
+    const question = quiz.questions[quiz.currentQuestionIndex];
+
+    //Show a single question to all players
+    io.to(roomId).emit("newQuestion", {
+      question,
+      questionIndex: quiz.currentQuestionIndex + 1,
+      totalQuestions: quiz.questions.length,
+    });
+
+    quiz.timer = setTimeout(() => {
+      sendNextQuestion(roomId);
+    }, 10000); // 10 seconds per question
+  }
 
   // Player joins a room
   socket.on("joinRoom", async ({ id, playerName }) => {
     const roomId = id?.toString()?.trim();
 
-    //roomId is what that is connecting this socket
     if (!roomId) {
-      console.warn(`joinRoom called without roomId by socket ${socket.id}`);
       socket.emit("error", { message: "Invalid room ID" });
       return;
     }
@@ -55,7 +102,6 @@ io.on("connection", (socket) => {
 
     const playerRepository = AppDataSource.getRepository(Player);
 
-    // Check if player already exists
     let player;
     if (playerName) {
       player = await playerRepository.findOne({
@@ -70,21 +116,85 @@ io.on("connection", (socket) => {
         room: { id: roomId },
       });
       await playerRepository.save(player);
+      console.log(`👤 Created new player: ${playerName} in room ${roomId}`);
     }
 
-    // Get all players in room
     const playersInRoom = await playerRepository.find({
       where: { room: { id: roomId } },
     });
+
     let latestPlayer = playerName;
     io.to(roomId).emit("updatePlayers", { playersInRoom, latestPlayer });
+    socket.emit("roomJoined", { roomId, playerName });
+  });
+
+  //Start quiz
+  socket.on("startQuiz", async ({ roomId, roomCode }) => {
+    if (!roomId) {
+      return;
+    }
+
+    const roomRepository = AppDataSource.getRepository(Room);
+
+    const room = await roomRepository.findOne({
+      where: { id: roomId },
+      relations: ["players"],
+    });
+
+    if (!room) {
+      socket.emit("error", { message: "Room not found" });
+      return;
+    }
+
+    const questions = quizData;
+
+    activeQuizzes[roomId] = {
+      currentQuestionIndex: 0,
+      questions,
+      timer: null,
+    };
+
+    //Quiz starting for everyone
+    io.to(roomId).emit("quizStarted", {
+      questions,
+      topic: room.topic,
+      roomCode: roomCode,
+      id: roomId,
+    });
+
+    setTimeout(() => {
+      sendQuestionToRoom(roomId);
+    }, 500);
+  });
+
+  socket.on("answerQuestion", ({ roomId, playerName, selectedOption }) => {
+    const quiz = activeQuizzes[roomId];
+    if (!quiz) {
+      socket.emit("error", { message: "No quiz for this room" });
+      return;
+    }
+
+    const currentQuestion = quiz.questions[quiz.currentQuestionIndex];
+
+    //Check if answer is correct
+    if (selectedOption === currentQuestion.answer) {
+      //Showing everyone that someone answered correctly
+      io.to(roomId).emit("correctAnswer", { playerName });
+
+      clearTimeout(quiz.timer);
+
+      setTimeout(() => {
+        sendNextQuestion(roomId);
+      }, 3000);
+    } else {
+      io.to(roomId).emit("wrongAnswer", { playerName, selectedOption });
+    }
   });
 
   socket.on("disconnect", () => {
-    console.log("Client disconnected:", socket.id);
+    console.log("❌ Client disconnected:", socket.id);
   });
 });
-
 const PORT = process.env.PORT || 3000;
 AppDataSource.initialize()
   .then(() => {
@@ -97,5 +207,4 @@ AppDataSource.initialize()
     console.error("Error during Data Source initialization:", err);
   });
 
-// Export io if needed in controllers
 module.exports = { io };
