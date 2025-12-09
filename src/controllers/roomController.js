@@ -80,7 +80,7 @@ export const createRoom = async (req, res) => {
       relations: ["players"],
     });
 
-    res.status(201).json(roomWithPlayers);
+    res.status(201).json({ roomWithPlayers });
   } catch (error) {
     console.error("Error creating room:", error);
     res
@@ -128,6 +128,7 @@ export const joinRoom = async (req, res) => {
 
     res.status(200).json({
       message: `${playerName} joined room ${room.code}`,
+      playerName: playerName,
       room,
     });
   } catch (err) {
