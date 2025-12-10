@@ -10,6 +10,7 @@ const roomRoutes = require("./routes/roomRoutes");
 const { Player } = require("./entities/Player");
 const { Room } = require("./entities/Room");
 const { quizData } = require("./data");
+const { generateQuiz } = require("./generateQuiz");
 
 const app = express();
 
@@ -129,42 +130,94 @@ io.on("connection", (socket) => {
   });
 
   //Start quiz
-  socket.on("startQuiz", async ({ roomId, roomCode }) => {
+  socket.on("startQuiz", async ({ roomId, roomCode, topic, numQuestions }) => {
     if (!roomId) {
       return;
     }
 
-    const roomRepository = AppDataSource.getRepository(Room);
+    //If quiz already exists for this room, don't regenerate
+    if (activeQuizzes[roomId]?.questions?.length > 0) {
+      console.log(
+        `Quiz already exists for room ${roomId}, using existing quiz`
+      );
 
-    const room = await roomRepository.findOne({
-      where: { id: roomId },
-      relations: ["players"],
-    });
+      io.to(roomId).emit("quizStarted", {
+        questions: activeQuizzes[roomId].questions,
+        topic: topic,
+        roomCode: roomCode,
+        id: roomId,
+      });
 
-    if (!room) {
-      socket.emit("error", { message: "Room not found" });
+      setTimeout(() => {
+        sendQuestionToRoom(roomId);
+      }, 500);
+
+      return; //returning early to prevent more quiz generation
+    }
+
+    //If already generating, ignore duplicate requests
+    if (activeQuizzes[roomId]?.generating) {
+      console.log(
+        `Quiz already being generated for room ${roomId}, ignoring duplicate request`
+      );
       return;
     }
 
-    const questions = quizData;
-
+    //Marking as generating to prevent duplicates
     activeQuizzes[roomId] = {
+      generating: true,
+      questions: [],
       currentQuestionIndex: 0,
-      questions,
       timer: null,
     };
 
-    //Quiz starting for everyone
-    io.to(roomId).emit("quizStarted", {
-      questions,
-      topic: room.topic,
-      roomCode: roomCode,
-      id: roomId,
-    });
+    try {
+      const roomRepository = AppDataSource.getRepository(Room);
 
-    setTimeout(() => {
-      sendQuestionToRoom(roomId);
-    }, 500);
+      const room = await roomRepository.findOne({
+        where: { id: roomId },
+        relations: ["players"],
+      });
+
+      if (!room) {
+        socket.emit("error", { message: "Room not found" });
+        delete activeQuizzes[roomId];
+        return;
+      }
+
+      //Generate quiz only once
+      const questions = await generateQuiz(topic, numQuestions);
+
+      console.log(
+        `✅ Quiz generated with ${questions.length} questions for room ${roomId}`
+      );
+
+      //Update with actual questions
+      activeQuizzes[roomId] = {
+        currentQuestionIndex: 0,
+        questions,
+        timer: null,
+        generating: false,
+      };
+
+      //Quiz starting for everyone
+      io.to(roomId).emit("quizStarted", {
+        questions,
+        topic: room.topic,
+        roomCode: roomCode,
+        id: roomId,
+      });
+
+      setTimeout(() => {
+        sendQuestionToRoom(roomId);
+      }, 500);
+    } catch (error) {
+      console.error(`Error generating quiz for room ${roomId}:`, error);
+      socket.emit("error", {
+        message: "Failed to generate quiz. Please try again.",
+      });
+      delete activeQuizzes[roomId];
+    }
   });
 
   socket.on("answerQuestion", ({ roomId, playerName, selectedOption }) => {
@@ -192,7 +245,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    console.log("❌ Client disconnected:", socket.id);
+    console.log("Client disconnected:", socket.id);
   });
 });
 const PORT = process.env.PORT || 3000;
