@@ -18,7 +18,7 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: [process.env.CLIENT_URL_PROD],
+    origin: [process.env.CLIENT_URL_DEV],
     methods: ["GET", "POST"],
     credentials: true,
     allowedHeaders: ["Content-Type"],
@@ -27,7 +27,7 @@ const io = new Server(server, {
 
 app.use(
   cors({
-    origin: process.env.CLIENT_URL_PROD,
+    origin: process.env.CLIENT_URL_DEV,
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -41,6 +41,28 @@ app.use(express.json());
 app.use("/api/rooms", roomRoutes);
 
 const activeQuizzes = {};
+
+// Store player scores for leaderboard
+const playerScores = {}; // { roomId: { playerName: score } }
+
+// Helper function to calculate and emit leaderboard
+function updateLeaderboard(roomId) {
+  if (!playerScores[roomId]) {
+    return;
+  }
+
+  // Convert scores object to sorted array
+  const leaderboard = Object.entries(playerScores[roomId])
+    .map(([name, score]) => ({
+      id: name, // Using name as id for simplicity
+      name,
+      score,
+    }))
+    .sort((a, b) => b.score - a.score); // Sort by score descending
+
+  // Emit to all players in the room
+  io.to(roomId).emit("leaderboardUpdate", leaderboard);
+}
 
 io.on("connection", (socket) => {
   console.log("New client connected:", socket.id);
@@ -62,6 +84,9 @@ io.on("connection", (socket) => {
     if (quiz.currentQuestionIndex >= quiz.questions.length) {
       //Quiz ended
       io.to(roomId).emit("quizEnded");
+
+      // Clean up scores when quiz ends
+      delete playerScores[roomId];
       delete activeQuizzes[roomId];
       return;
     }
@@ -120,6 +145,14 @@ io.on("connection", (socket) => {
       console.log(`👤 Created new player: ${playerName} in room ${roomId}`);
     }
 
+    // Initialize player score if not exists
+    if (!playerScores[roomId]) {
+      playerScores[roomId] = {};
+    }
+    if (!playerScores[roomId][playerName]) {
+      playerScores[roomId][playerName] = 0;
+    }
+
     const playersInRoom = await playerRepository.find({
       where: { room: { id: roomId } },
     });
@@ -127,6 +160,9 @@ io.on("connection", (socket) => {
     let latestPlayer = playerName;
     io.to(roomId).emit("updatePlayers", { playersInRoom, latestPlayer });
     socket.emit("roomJoined", { roomId, playerName });
+
+    // Send current leaderboard to the player who just joined
+    updateLeaderboard(roomId);
   });
 
   //Start quiz
@@ -171,6 +207,11 @@ io.on("connection", (socket) => {
       timer: null,
     };
 
+    // Initialize scores for this room
+    if (!playerScores[roomId]) {
+      playerScores[roomId] = {};
+    }
+
     try {
       const roomRepository = AppDataSource.getRepository(Room);
 
@@ -185,11 +226,24 @@ io.on("connection", (socket) => {
         return;
       }
 
+      // Initialize all players with 0 score
+      const playerRepository = AppDataSource.getRepository(Player);
+      const playersInRoom = await playerRepository.find({
+        where: { room: { id: roomId } },
+      });
+
+      playersInRoom.forEach((player) => {
+        if (!playerScores[roomId][player.name]) {
+          playerScores[roomId][player.name] = 0;
+        }
+      });
+
       //Generate quiz only once
-      const questions = await generateQuiz(topic, numQuestions);
+      // const questions = await generateQuiz(topic, numQuestions);
+      const questions = quizData;
 
       console.log(
-        `✅ Quiz generated with ${questions.length} questions for room ${roomId}`
+        `Quiz generated with ${questions.length} questions for room ${roomId}`
       );
 
       //Update with actual questions
@@ -207,6 +261,9 @@ io.on("connection", (socket) => {
         roomCode: roomCode,
         id: roomId,
       });
+
+      // Send initial leaderboard
+      updateLeaderboard(roomId);
 
       setTimeout(() => {
         sendQuestionToRoom(roomId);
@@ -231,8 +288,13 @@ io.on("connection", (socket) => {
 
     //Check if answer is correct
     if (selectedOption === currentQuestion.answer) {
-      //Showing everyone that someone answered correctly
-      io.to(roomId).emit("correctAnswer", { playerName });
+      //Showing everyone that someone answered correctly with notification
+      io.to(roomId).emit("correctAnswer", {
+        playerName,
+      });
+
+      // Update and add to leaderboard
+      updateLeaderboard(roomId);
 
       clearTimeout(quiz.timer);
 
@@ -248,6 +310,7 @@ io.on("connection", (socket) => {
     console.log("Client disconnected:", socket.id);
   });
 });
+
 const PORT = process.env.PORT || 3000;
 AppDataSource.initialize()
   .then(() => {
