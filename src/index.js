@@ -239,8 +239,8 @@ io.on("connection", (socket) => {
       });
 
       //Generate quiz only once
-      // const questions = await generateQuiz(topic, numQuestions);
-      const questions = quizData;
+      const questions = await generateQuiz(topic, numQuestions);
+      //  const questions = quizData;
 
       console.log(
         `Quiz generated with ${questions.length} questions for room ${roomId}`
