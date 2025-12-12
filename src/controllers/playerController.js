@@ -1,4 +1,5 @@
 // src/controllers/playerController.js
+import bcrypt from "bcrypt";
 import { AppDataSource } from "../data-source.js";
 import { Player } from "../entities/Player.js";
 import { Room } from "../entities/Room.js";
@@ -23,10 +24,12 @@ export const createPlayer = async (req, res) => {
         .json({ message: "Player with this email already exists" });
     }
 
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     const player = playerRepository.create({
       name,
       email,
-      password,
+      password: hashedPassword,
     });
 
     const savedPlayer = await playerRepository.save(player);
