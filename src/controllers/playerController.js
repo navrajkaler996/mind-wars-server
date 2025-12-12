@@ -1,10 +1,10 @@
 // src/controllers/playerController.js
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 import { AppDataSource } from "../data-source.js";
 import { Player } from "../entities/Player.js";
 import { Room } from "../entities/Room.js";
 
-const roomRepository = AppDataSource.getRepository(Room);
 const playerRepository = AppDataSource.getRepository(Player);
 
 export const createPlayer = async (req, res) => {
@@ -59,7 +59,7 @@ export const loginPlayer = async (req, res) => {
     }
 
     const loggedInPlayer = await playerRepository.findOne({
-      where: { email, password },
+      where: { email },
     });
 
     if (!loggedInPlayer) {
@@ -68,8 +68,30 @@ export const loginPlayer = async (req, res) => {
         .json({ message: "Email or password does not match" });
     }
 
+    const isPasswordMatch = await bcrypt.compare(
+      password,
+      loggedInPlayer?.password
+    );
+
+    if (!isPasswordMatch) {
+      return res
+        .status(401)
+        .json({ message: "Email or password does not match" });
+    }
+
+    const token = jwt.sign(
+      {
+        id: loggedInPlayer.id,
+        name: loggedInPlayer.name,
+        email: loggedInPlayer.email,
+      },
+      process.env.JWT_KEY,
+      { expiresIn: "2m" }
+    );
+
     return res.status(200).json({
       message: `${loggedInPlayer.name} logged in successfully`,
+      token,
       player: {
         name: loggedInPlayer.name,
         email: loggedInPlayer.email,
