@@ -7,6 +7,7 @@ const { Server } = require("socket.io");
 const { AppDataSource } = require("./data-source");
 
 const roomRoutes = require("./routes/roomRoutes");
+const playerRoutes = require("./routes/playerRoutes");
 const { Player } = require("./entities/Player");
 const { Room } = require("./entities/Room");
 const { quizData } = require("./data");
@@ -39,20 +40,20 @@ app.use(
 app.use(express.json());
 
 app.use("/api/rooms", roomRoutes);
+app.use("/api/players", playerRoutes);
 
 const activeQuizzes = {};
 
-// Store player scores for leaderboard
+//Store player scores for leaderboard
 const playerScores = {}; // { roomId: { playerName: score } }
 
-// Helper function to calculate and emit leaderboard
+//Function to calculate and emit leaderboard
 function updateLeaderboard(roomId) {
-  console.log(playerScores);
   if (!playerScores[roomId]) {
     return;
   }
 
-  // Convert scores object to sorted array
+  //Convert scores object to sorted array
   const leaderboard = Object.entries(playerScores[roomId])
     .map(([name, score]) => ({
       id: name, // Using name as id for simplicity
@@ -61,7 +62,7 @@ function updateLeaderboard(roomId) {
     }))
     .sort((a, b) => b.score - a.score); // Sort by score descending
 
-  // Emit to all players in the room
+  //Emit to all players in the room
   io.to(roomId).emit("leaderboardUpdate", leaderboard);
 }
 

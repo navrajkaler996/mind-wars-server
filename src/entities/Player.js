@@ -12,6 +12,12 @@ const Player = new EntitySchema({
     name: {
       type: "varchar",
     },
+    email: {
+      type: "varchar",
+    },
+    password: {
+      type: "varchar",
+    },
   },
   relations: {
     room: {
