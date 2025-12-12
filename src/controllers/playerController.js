@@ -44,3 +44,36 @@ export const createPlayer = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+export const loginPlayer = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res
+        .status(400)
+        .json({ message: "Email and password are required" });
+    }
+
+    const loggedInPlayer = await playerRepository.findOne({
+      where: { email, password },
+    });
+
+    if (!loggedInPlayer) {
+      return res
+        .status(401)
+        .json({ message: "Email or password does not match" });
+    }
+
+    return res.status(200).json({
+      message: `${loggedInPlayer.name} logged in successfully`,
+      player: {
+        name: loggedInPlayer.name,
+        email: loggedInPlayer.email,
+      },
+    });
+  } catch (error) {
+    console.error("Error logging in player:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
