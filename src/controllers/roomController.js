@@ -2,9 +2,11 @@
 import { AppDataSource } from "../data-source.js";
 import { Player } from "../entities/Player.js";
 import { Room } from "../entities/Room.js";
+import { Topic } from "../entities/Topic.js";
 
 const roomRepository = AppDataSource.getRepository(Room);
 const playerRepository = AppDataSource.getRepository(Player);
+const topicRepository = AppDataSource.getTreeRepository(Topic);
 
 const generateCode = () =>
   Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -13,7 +15,8 @@ const generateCode = () =>
 
 export const createRoom = async (req, res) => {
   try {
-    const { roomName, playerName, topic, numQuestions, code } = req.body;
+    const { roomName, playerName, topic, numQuestions, code, masterTopic } =
+      req.body;
 
     // Validations
     if (!roomName || typeof roomName !== "string" || roomName.trim() === "") {
@@ -78,6 +81,17 @@ export const createRoom = async (req, res) => {
         room: savedRoom,
       });
       await playerRepository.save(player);
+    }
+
+    //if masterTopic is false, that means, topic does not  exists in masterTopic table
+    if (!masterTopic) {
+      const newTopic = topicRepository.create({
+        topicName: topic,
+      });
+
+      const topicAdded = await topicRepository.save(newTopic);
+
+      console.log("New topic added:", topicAdded);
     }
 
     // Return the room with its players
