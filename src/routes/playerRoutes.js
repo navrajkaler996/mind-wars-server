@@ -6,6 +6,7 @@ const {
   getPlayerData,
   updatePlayerScore,
   updatePlayerBattlesWon,
+  removePlayerFromRoom,
 } = require("../controllers/playerController");
 
 const router = express.Router();
@@ -16,5 +17,6 @@ router.post("/login", loginPlayer);
 router.get("/:email", getPlayerData);
 router.put("/updatescore", updatePlayerScore);
 router.put("/updatebattleswon", updatePlayerBattlesWon);
+router.put("/removeroom", removePlayerFromRoom);
 
 module.exports = router;

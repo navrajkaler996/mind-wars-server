@@ -120,7 +120,9 @@ io.on("connection", (socket) => {
   // Player joins a room
   socket.on("joinRoom", async ({ id, playerName, email }) => {
     console.log("joinRoom called with:", { id, playerName, email });
-
+    socket.email = email;
+    socket.roomId = id;
+    socket.playerName = playerName;
     const roomId = id?.toString()?.trim();
 
     if (!roomId) {
@@ -390,8 +392,74 @@ io.on("connection", (socket) => {
     delete playerScores[roomId];
   });
 
-  socket.on("disconnect", () => {
-    console.log("Client disconnected:", socket.id);
+  socket.on("disconnect", async () => {
+    console.log("Client disconnected:", socket.id, socket.email);
+    const email = socket.email;
+    const roomId = socket.roomId;
+    const playerName = socket.playerName;
+    if (roomId && email) {
+      // console.log(`${currentPlayerName} left room ${currentRoomId}`);
+
+      const playerRepository = AppDataSource.getRepository(Player);
+
+      try {
+        // If it's a guest player (no email), delete from database
+        if (!email) {
+          // const guestPlayer = await playerRepository.findOne({
+          //   where: {
+          //     email: currentPlayerName,
+          //     room: { id: currentRoomId },
+          //     email: null,
+          //   },
+          //   relations: ["room"],
+          // });
+          // if (guestPlayer) {
+          //   await playerRepository.remove(guestPlayer);
+          //   console.log(
+          //     `Removed guest player ${currentPlayerName} from database`
+          //   );
+          // }
+        } else {
+          // For registered players, just remove room association
+          await playerRepository.update({ email: email }, { room: null });
+          console.log(
+            `🔓 Removed room association for registered player ${email}`
+          );
+        }
+
+        // Remove from leaderboard scores
+        // if (
+        //   playerScores[currentRoomId] &&
+        //   playerScores[currentRoomId][currentPlayerName]
+        // ) {
+        //   delete playerScores[currentRoomId][currentPlayerName];
+        //   console.log(`Removed ${currentPlayerName} from leaderboard`);
+        // }
+
+        // Get updated player list
+        const playersInRoom = await playerRepository.find({
+          where: { room: { id: roomId } },
+        });
+
+        // Notify remaining players
+        io.to(roomId).emit("updatePlayers", {
+          playersInRoom,
+          latestPlayer: null,
+        });
+        io.to(roomId).emit("playerLeft", {
+          roomId,
+          email,
+          playerName,
+        });
+
+        // Update leaderboard for remaining players
+        // updateLeaderboard(currentRoomId);
+
+        console.log(`Cleanup complete for ${email}`);
+      } catch (error) {
+        console.error("Error during disconnect cleanup:", error);
+      }
+    }
   });
 });
 

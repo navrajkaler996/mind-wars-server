@@ -226,3 +226,48 @@ export const getPlayerData = async (req, res) => {
     });
   }
 };
+
+//Remove room from player
+export const removePlayerFromRoom = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        message: "Email is required",
+      });
+    }
+
+    const playerData = await playerRepository.findOne({
+      where: { email },
+      relations: ["room"],
+    });
+
+    if (!playerData) {
+      return res.status(404).json({
+        message: `No player exists with this email: ${email}`,
+      });
+    }
+
+    if (!playerData.room) {
+      return res.status(400).json({
+        message: "Player is not associated with any room",
+      });
+    }
+
+    await playerRepository.update({ email }, { room: null });
+
+    return res.status(200).json({
+      message: "Player removed from room successfully",
+      player: {
+        name: playerData.name,
+        email: playerData.email,
+      },
+    });
+  } catch (error) {
+    console.error("Error removing player from room:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+};
