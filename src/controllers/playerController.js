@@ -149,11 +149,11 @@ export const updatePlayerScore = async (req, res) => {
 //Update player total battles won
 export const updatePlayerBattlesWon = async (req, res) => {
   try {
-    const { battlesWon, email } = req.body;
+    const { email } = req.body;
 
-    if (typeof battlesWon !== "number" || !email) {
+    if (!email) {
       return res.status(400).json({
-        message: "Email and numeric battlesWon are required",
+        message: "Email is required",
       });
     }
 
@@ -167,7 +167,7 @@ export const updatePlayerBattlesWon = async (req, res) => {
       });
     }
 
-    const updatedBattlesWon = playerData.totalBattlesWon + battlesWon;
+    let updatedBattlesWon = playerData.totalBattlesWon + 1;
 
     await playerRepository.update(
       { email },

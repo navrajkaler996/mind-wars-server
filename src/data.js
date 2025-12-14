@@ -67,20 +67,20 @@ export const quizData = [
     ],
     answer: "Adolf Hitler",
   },
-  // {
-  //   question: "What was the codename for the Allied invasion of Normandy?",
-  //   options: [
-  //     "Operation Barbarossa",
-  //     "Operation Market Garden",
-  //     "Operation Overlord",
-  //     "Operation Torch",
-  //   ],
-  //   answer: "Operation Overlord",
-  // },
-  // {
-  //   question:
-  //     "Which country suffered the highest civilian casualties during World War 2?",
-  //   options: ["Germany", "Soviet Union", "Poland", "Japan"],
-  //   answer: "Soviet Union",
-  // },
+  {
+    question: "What was the codename for the Allied invasion of Normandy?",
+    options: [
+      "Operation Barbarossa",
+      "Operation Market Garden",
+      "Operation Overlord",
+      "Operation Torch",
+    ],
+    answer: "Operation Overlord",
+  },
+  {
+    question:
+      "Which country suffered the highest civilian casualties during World War 2?",
+    options: ["Germany", "Soviet Union", "Poland", "Japan"],
+    answer: "Soviet Union",
+  },
 ];
