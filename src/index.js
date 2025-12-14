@@ -44,16 +44,16 @@ app.use("/api/players", playerRoutes);
 
 const activeQuizzes = {};
 
-//Store player scores for leaderboard
+// Store player scores for leaderboard
 const playerScores = {}; // { roomId: { playerName: score } }
 
-//Function to calculate and emit leaderboard
+// Helper function to calculate and emit leaderboard
 function updateLeaderboard(roomId) {
   if (!playerScores[roomId]) {
     return;
   }
 
-  //Convert scores object to sorted array
+  // Convert scores object to sorted array
   const leaderboard = Object.entries(playerScores[roomId])
     .map(([name, score]) => ({
       id: name, // Using name as id for simplicity
@@ -62,7 +62,7 @@ function updateLeaderboard(roomId) {
     }))
     .sort((a, b) => b.score - a.score); // Sort by score descending
 
-  //Emit to all players in the room
+  // Emit to all players in the room
   io.to(roomId).emit("leaderboardUpdate", leaderboard);
 }
 
@@ -88,8 +88,8 @@ io.on("connection", (socket) => {
       io.to(roomId).emit("quizEnded");
 
       // Clean up scores when quiz ends
-      // delete playerScores[roomId];
-      //delete activeQuizzes[roomId];
+      delete playerScores[roomId];
+      delete activeQuizzes[roomId];
       return;
     }
 
@@ -118,33 +118,64 @@ io.on("connection", (socket) => {
   }
 
   // Player joins a room
-  socket.on("joinRoom", async ({ id, playerName }) => {
+  socket.on("joinRoom", async ({ id, playerName, email }) => {
+    console.log("joinRoom called with:", { id, playerName, email });
+
     const roomId = id?.toString()?.trim();
 
     if (!roomId) {
+      console.log("Invalid room ID");
       socket.emit("error", { message: "Invalid room ID" });
       return;
     }
 
     socket.join(roomId);
+    console.log(`Socket ${socket.id} joined room ${roomId}`);
 
     const playerRepository = AppDataSource.getRepository(Player);
 
     let player;
-    if (playerName) {
-      player = await playerRepository.findOne({
-        where: { name: playerName, room: { id: roomId } },
-        relations: ["room"],
-      });
-    }
 
-    if (!player && playerName) {
-      player = playerRepository.create({
-        name: playerName,
-        room: { id: roomId },
+    // If email is provided, it's a registered user
+    if (email) {
+      console.log(`Looking for registered player with email: ${email}`);
+      // Find the registered player by email
+      player = await playerRepository.findOne({
+        where: { email },
       });
-      await playerRepository.save(player);
-      console.log(`👤 Created new player: ${playerName} in room ${roomId}`);
+
+      if (!player) {
+        console.log(`Registered player not found for email: ${email}`);
+        socket.emit("error", { message: "Registered player not found" });
+        return;
+      }
+
+      // Associate the player with this room
+      await playerRepository.update({ email }, { room: { id: roomId } });
+
+      console.log(
+        `Registered player ${player.name} (${email}) joined room ${roomId}`
+      );
+    } else {
+      console.log(`Guest player logic for: ${playerName}`);
+      // Guest player logic (no email)
+      if (playerName) {
+        player = await playerRepository.findOne({
+          where: { name: playerName, room: { id: roomId }, email: null },
+          relations: ["room"],
+        });
+      }
+
+      if (!player && playerName) {
+        // Create guest player (without email)
+        player = playerRepository.create({
+          name: playerName,
+          room: { id: roomId },
+          email: null,
+        });
+        await playerRepository.save(player);
+        console.log(`Created guest player: ${playerName} in room ${roomId}`);
+      }
     }
 
     // Initialize player score if not exists
@@ -159,9 +190,12 @@ io.on("connection", (socket) => {
       where: { room: { id: roomId } },
     });
 
+    console.log(`Players in room ${roomId}:`, playersInRoom.length);
+
     let latestPlayer = playerName;
     io.to(roomId).emit("updatePlayers", { playersInRoom, latestPlayer });
-    socket.emit("roomJoined", { roomId, playerName });
+    socket.emit("roomJoined", { roomId, playerName, isRegistered: !!email });
+    console.log(`Emitted roomJoined for ${playerName}`);
 
     // Send current leaderboard to the player who just joined
     updateLeaderboard(roomId);
@@ -192,8 +226,6 @@ io.on("connection", (socket) => {
 
       return; //returning early to prevent more quiz generation
     }
-
-    console.log(activeQuizzes);
 
     //If already generating, ignore duplicate requests
     if (activeQuizzes[roomId]?.generating) {
@@ -243,7 +275,7 @@ io.on("connection", (socket) => {
       });
 
       //Generate quiz only once
-      //const questions = await generateQuiz(topic, numQuestions);
+      //  const questions = await generateQuiz(topic, numQuestions);
       const questions = quizData;
 
       console.log(
@@ -292,12 +324,30 @@ io.on("connection", (socket) => {
 
     //Check if answer is correct
     if (selectedOption === currentQuestion.answer) {
+      // Calculate points based on time (assuming 10 seconds per question)
+      // Points formula: 100 base + (timeLeft * 3)
+      // Since we don't track individual time, we'll use a default bonus
+      const points = 100 + Math.floor(Math.random() * 30); // 100-130 points
+
+      // Update player score
+      if (!playerScores[roomId]) {
+        playerScores[roomId] = {};
+      }
+      if (!playerScores[roomId][playerName]) {
+        playerScores[roomId][playerName] = 0;
+      }
+      playerScores[roomId][playerName] += points;
+
+      console.log(`${playerName} scored ${points} points in room ${roomId}`);
+
       //Showing everyone that someone answered correctly with notification
       io.to(roomId).emit("correctAnswer", {
         playerName,
+        points,
+        totalScore: playerScores[roomId][playerName],
       });
 
-      // Update and add to leaderboard
+      // Update and broadcast leaderboard
       updateLeaderboard(roomId);
 
       clearTimeout(quiz.timer);
@@ -308,38 +358,6 @@ io.on("connection", (socket) => {
     } else {
       io.to(roomId).emit("wrongAnswer", { playerName, selectedOption });
     }
-  });
-
-  socket.on("submitPlayerScore", async ({ roomId, playerName, score }) => {
-    const quiz = activeQuizzes[roomId];
-
-    if (!quiz) return;
-
-    if (!quiz.players) {
-      quiz.players = {};
-    }
-
-    // Save player's score
-    quiz.players[playerName] = score;
-
-    // Getting total number of players from db
-    const playerRepository = AppDataSource.getRepository(Player);
-    const playersInRoom = await playerRepository.find({
-      where: { room: { id: roomId } },
-    });
-
-    const totalPlayers = playersInRoom.length;
-    const submittedPlayers = Object.keys(quiz.players).length;
-
-    if (submittedPlayers < totalPlayers) return;
-
-    //When all players submitted, send final results to client
-
-    io.to(roomId).emit("finalScores", quiz.players);
-
-    // Cleanup
-    delete activeQuizzes[roomId];
-    delete playerScores[roomId];
   });
 
   socket.on("disconnect", () => {

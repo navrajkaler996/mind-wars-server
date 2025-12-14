@@ -60,13 +60,19 @@ export const createRoom = async (req, res) => {
     const savedRoom = await roomRepository.save(room);
 
     //If player exists
+
+    // let player = await playerRepository.findOne({
+    //   where: { name: playerName, room: { id: savedRoom.id } },
+    //   relations: ["room"],
+    // });
     let player = await playerRepository.findOne({
-      where: { name: playerName, room: { id: savedRoom.id } },
+      where: { name: playerName },
       relations: ["room"],
     });
 
     if (!player) {
       // If not exists, create a new player
+      console.log("here", playerName);
       player = playerRepository.create({
         name: playerName,
         room: savedRoom,
@@ -91,7 +97,7 @@ export const createRoom = async (req, res) => {
 //Join room
 export const joinRoom = async (req, res) => {
   try {
-    const { code, playerName } = req.body;
+    const { code, playerName, email } = req.body;
 
     if (!code || !playerName) {
       return res
@@ -99,40 +105,86 @@ export const joinRoom = async (req, res) => {
         .json({ error: "Room code and player name are required" });
     }
 
-    //Check for the room
+    // Check for the room
     const room = await roomRepository.findOne({
       where: { code },
       relations: ["players"],
     });
 
-    if (!room) return res.status(404).json({ error: "Room not found" });
-
-    // Check if player already exists in this room
-    const existingPlayer = await playerRepository.findOne({
-      where: { name: playerName, room: { id: room.id } },
-      relations: ["room"],
-    });
-
-    if (existingPlayer) {
-      return res
-        .status(400)
-        .json({ error: "Player name already exists in this room" });
+    if (!room) {
+      return res.status(404).json({ error: "Room not found" });
     }
 
-    // Create a new player
-    const player = playerRepository.create({
-      name: playerName,
-      room,
-    });
-    await playerRepository.save(player);
+    let player;
+
+    // If email is provided, it's a registered user
+    if (email) {
+      // Find the registered player by email
+      player = await playerRepository.findOne({
+        where: { email },
+      });
+
+      if (!player) {
+        return res.status(404).json({
+          error: "Registered player not found. Please create an account first.",
+        });
+      }
+
+      // Check if this registered player is already in the room
+      // const playerInRoom = room.players.some((p) => p.email === email);
+      // if (playerInRoom) {
+      //   return res.status(400).json({
+      //     error: "You have already joined this room",
+      //   });
+      // }
+
+      // Associate the registered player with this room
+      await playerRepository.update({ email }, { room: { id: room.id } });
+
+      console.log(
+        `Registered player ${player.name} (${email}) joined room ${room.code}`
+      );
+    } else {
+      // Guest player logic (no email)
+
+      // Check if guest player name already exists in this room
+      const existingGuest = await playerRepository.findOne({
+        where: { name: playerName, room: { id: room.id }, email: null },
+        relations: ["room"],
+      });
+
+      if (existingGuest) {
+        return res.status(400).json({
+          error: "Player name already exists in this room",
+        });
+      }
+
+      // Create a new guest player
+      player = playerRepository.create({
+        name: playerName,
+        room,
+        email: null,
+      });
+      await playerRepository.save(player);
+
+      console.log(`Guest player ${playerName} joined room ${room.code}`);
+    }
+
+    console.log("------", room.roomName);
 
     res.status(200).json({
       message: `${playerName} joined room ${room.code}`,
       playerName: playerName,
-      room,
+      isRegistered: !!email,
+      room: {
+        id: room.id,
+        code: room.code,
+        roomName: room.roomName,
+        topic: room.topic,
+      },
     });
   } catch (err) {
-    console.error(err);
+    console.error("Error in joinRoom:", err);
     res.status(500).json({ error: "Failed to join room" });
   }
 };

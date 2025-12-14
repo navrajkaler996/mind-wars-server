@@ -18,6 +18,18 @@ const Player = new EntitySchema({
     password: {
       type: "varchar",
     },
+    totalScore: {
+      type: "int",
+      default: 0,
+    },
+    totalBattles: {
+      type: "int",
+      default: 0,
+    },
+    totalBattlesWon: {
+      type: "int",
+      default: 0,
+    },
   },
   relations: {
     room: {

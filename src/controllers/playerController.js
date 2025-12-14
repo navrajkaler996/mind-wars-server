@@ -95,10 +95,134 @@ export const loginPlayer = async (req, res) => {
       player: {
         name: loggedInPlayer.name,
         email: loggedInPlayer.email,
+        totalScore: loggedInPlayer.totalScore,
+        totalBattlesWon: loggedInPlayer.totalBattlesWon,
       },
     });
   } catch (error) {
     console.error("Error logging in player:", error);
     return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+//Update player total score
+export const updatePlayerScore = async (req, res) => {
+  try {
+    const { newScore, email } = req.body;
+
+    if (typeof newScore !== "number" || !email) {
+      return res.status(400).json({
+        message: "Email and numeric newScore are required",
+      });
+    }
+
+    const playerData = await playerRepository.findOne({
+      where: { email },
+    });
+
+    if (!playerData) {
+      return res.status(404).json({
+        message: `No player exists with this email: ${email}`,
+      });
+    }
+
+    const updatedScore = playerData.totalScore + newScore;
+
+    await playerRepository.update({ email }, { totalScore: updatedScore });
+
+    return res.status(200).json({
+      message: "Player score updated successfully",
+      player: {
+        name: playerData.name,
+        email: playerData.email,
+        totalScore: updatedScore,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating player score:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+};
+
+//Update player total battles won
+export const updatePlayerBattlesWon = async (req, res) => {
+  try {
+    const { battlesWon, email } = req.body;
+
+    if (typeof battlesWon !== "number" || !email) {
+      return res.status(400).json({
+        message: "Email and numeric battlesWon are required",
+      });
+    }
+
+    const playerData = await playerRepository.findOne({
+      where: { email },
+    });
+
+    if (!playerData) {
+      return res.status(404).json({
+        message: `No player exists with this email: ${email}`,
+      });
+    }
+
+    const updatedBattlesWon = playerData.totalBattlesWon + battlesWon;
+
+    await playerRepository.update(
+      { email },
+      { totalBattlesWon: updatedBattlesWon }
+    );
+
+    return res.status(200).json({
+      message: "Player battles won updated successfully",
+      player: {
+        name: playerData.name,
+        email: playerData.email,
+        totalBattlesWon: updatedBattlesWon,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating player battles won:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+};
+
+//Get player data
+export const getPlayerData = async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    if (!email) {
+      return res.status(400).json({
+        message: "Email is required",
+      });
+    }
+
+    const playerData = await playerRepository.findOne({
+      where: { email },
+    });
+
+    if (!playerData) {
+      return res.status(404).json({
+        message: `No player exists with this email: ${email}`,
+      });
+    }
+
+    return res.status(200).json({
+      player: {
+        name: playerData.name,
+        email: playerData.email,
+        totalScore: playerData.totalScore,
+        totalBattlesWon: playerData.totalBattlesWon,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching player data:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+    });
   }
 };
