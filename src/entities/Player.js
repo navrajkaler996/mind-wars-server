@@ -38,6 +38,11 @@ const Player = new EntitySchema({
       joinColumn: true,
       onDelete: "CASCADE",
     },
+    playerTopics: {
+      type: "one-to-many",
+      target: "PlayerTopic",
+      inverseSide: "player",
+    },
   },
 });
 

@@ -54,6 +54,8 @@ export const createTopic = async (req, res) => {
       });
     }
 
+    topicName = topicName?.toLowerCase();
+
     const existingTopic = await topicRepository.findOneBy({ topicName });
     if (existingTopic) {
       return res.status(409).json({
@@ -62,6 +64,7 @@ export const createTopic = async (req, res) => {
       });
     }
 
+    // Create and save new topic
     const newTopic = topicRepository.create({ topicName });
     await topicRepository.save(newTopic);
 

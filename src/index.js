@@ -9,6 +9,7 @@ const { AppDataSource } = require("./data-source");
 const roomRoutes = require("./routes/roomRoutes");
 const playerRoutes = require("./routes/playerRoutes");
 const topicRoutes = require("./routes/topicRoutes");
+const playerTopicRoutes = require("./routes/playerTopicRoutes");
 const { Player } = require("./entities/Player");
 const { Room } = require("./entities/Room");
 const { quizData } = require("./data");
@@ -43,6 +44,7 @@ app.use(express.json());
 app.use("/api/rooms", roomRoutes);
 app.use("/api/players", playerRoutes);
 app.use("/api/topics", topicRoutes);
+app.use("/api/playertopics", playerTopicRoutes);
 
 const activeQuizzes = {};
 
