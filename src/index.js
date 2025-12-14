@@ -88,8 +88,8 @@ io.on("connection", (socket) => {
       io.to(roomId).emit("quizEnded");
 
       // Clean up scores when quiz ends
-      delete playerScores[roomId];
-      delete activeQuizzes[roomId];
+      // delete playerScores[roomId];
+      // delete activeQuizzes[roomId];
       return;
     }
 
@@ -358,6 +358,36 @@ io.on("connection", (socket) => {
     } else {
       io.to(roomId).emit("wrongAnswer", { playerName, selectedOption });
     }
+  });
+
+  socket.on("submitPlayerScore", async ({ roomId, playerName, score }) => {
+    const quiz = activeQuizzes[roomId];
+
+    if (!quiz) return;
+
+    if (!quiz.players) {
+      quiz.players = {};
+    }
+
+    // Save player's score
+    quiz.players[playerName] = score;
+
+    // Getting total number of players from db
+    const playerRepository = AppDataSource.getRepository(Player);
+    const playersInRoom = await playerRepository.find({
+      where: { room: { id: roomId } },
+    });
+
+    const totalPlayers = playersInRoom.length;
+    const submittedPlayers = Object.keys(quiz.players).length;
+
+    //  if (submittedPlayers < totalPlayers) return;
+    //When all players submitted, send final results to client
+    io.to(roomId).emit("finalScores", quiz.players);
+
+    // Cleanup
+    delete activeQuizzes[roomId];
+    delete playerScores[roomId];
   });
 
   socket.on("disconnect", () => {
