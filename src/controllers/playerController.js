@@ -127,8 +127,12 @@ export const updatePlayerScore = async (req, res) => {
     }
 
     const updatedScore = playerData.totalScore + newScore;
+    const updatedBattles = playerData.totalBattles + 1;
 
-    await playerRepository.update({ email }, { totalScore: updatedScore });
+    await playerRepository.update(
+      { email },
+      { totalScore: updatedScore, totalBattles: updatedBattles }
+    );
 
     return res.status(200).json({
       message: "Player score updated successfully",
@@ -136,6 +140,7 @@ export const updatePlayerScore = async (req, res) => {
         name: playerData.name,
         email: playerData.email,
         totalScore: updatedScore,
+        totalBattles: playerData?.totalBattles,
       },
     });
   } catch (error) {
@@ -217,6 +222,7 @@ export const getPlayerData = async (req, res) => {
         email: playerData.email,
         totalScore: playerData.totalScore,
         totalBattlesWon: playerData.totalBattlesWon,
+        totalBattles: playerData.totalBattles,
       },
     });
   } catch (error) {

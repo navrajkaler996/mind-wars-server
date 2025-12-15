@@ -88,7 +88,7 @@ export const addPlayerTopic = async (req, res) => {
 
 export const getPlayerTopics = async (req, res) => {
   try {
-    const { email } = req.params;
+    const { email } = req.query;
 
     if (!email) {
       return res.status(400).json({ message: "Email is required" });
@@ -106,11 +106,11 @@ export const getPlayerTopics = async (req, res) => {
 
     return res.status(200).json({
       player: { name: player.name, email: player.email },
-      topics: playerTopics.map((pt) => ({
-        topicName: pt.topic.topicName,
-        score: pt.score,
-        battles: pt.battles,
-        playedAt: pt.playedAt,
+      topics: playerTopics.map((playerTopic) => ({
+        topicName: playerTopic.topic.topicName,
+        score: playerTopic.totalScore,
+        battles: playerTopic.totalBattles,
+        battlesWon: playerTopic.totalBattlesWon,
       })),
     });
   } catch (error) {
