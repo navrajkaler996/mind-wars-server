@@ -10,7 +10,9 @@ router.post("/get-questions", async (req, res) => {
 
     const questions = await generateQuiz(topic, numQuestions);
 
-    res.json(questions);
+    res.json({
+      questions,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
