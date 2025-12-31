@@ -10,6 +10,7 @@ const roomRoutes = require("./routes/roomRoutes");
 const playerRoutes = require("./routes/playerRoutes");
 const topicRoutes = require("./routes/topicRoutes");
 const playerTopicRoutes = require("./routes/playerTopicRoutes");
+const practiceRoutes = require("./routes/practiceRoutes");
 const { Player } = require("./entities/Player");
 const { Room } = require("./entities/Room");
 const { quizData } = require("./data");
@@ -21,7 +22,7 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: [process.env.CLIENT_URL_PROD],
+    origin: [process.env.CLIENT_URL_DEV],
     methods: ["GET", "POST"],
     credentials: true,
     allowedHeaders: ["Content-Type"],
@@ -30,7 +31,7 @@ const io = new Server(server, {
 
 app.use(
   cors({
-    origin: process.env.CLIENT_URL_PROD,
+    origin: process.env.CLIENT_URL_DEV,
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -45,6 +46,7 @@ app.use("/api/rooms", roomRoutes);
 app.use("/api/players", playerRoutes);
 app.use("/api/topics", topicRoutes);
 app.use("/api/playertopics", playerTopicRoutes);
+app.use("/api/practice", practiceRoutes);
 
 const activeQuizzes = {};
 
